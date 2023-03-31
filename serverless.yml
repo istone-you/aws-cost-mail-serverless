@@ -1,0 +1,49 @@
+
+service: aws-cost-mail-serverless
+
+frameworkVersion: '3'
+
+plugins:
+  - serverless-dotenv-plugin
+
+useDotenv: true
+
+provider:
+  name: aws
+  runtime: python3.9
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - 'ce:GetCostAndUsage'
+          Resource:
+            - '*'
+        - Effect: Allow
+          Action:
+            - sns:Publish
+          Resource: !Ref SNSTopic
+  environment:
+    TOPIC_ARN: !Ref SNSTopic
+    ACCOUNT_ID: !Ref AWS::AccountId
+
+functions:
+  SendCostMail:
+    handler: lambda_function.lambda_handler
+    events:
+    - eventBridge:
+          schedule: cron(0 5 ? * * *)
+
+resources:
+  Resources:
+    SNSTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        DisplayName: SNS Topic
+        TopicName: SendCostMailTopic
+    SNSSubscription:
+      Type: AWS::SNS::Subscription
+      Properties:
+          Endpoint: ${env:SNS_MAIL}
+          Protocol: email
+          TopicArn: !Ref SNSTopic
